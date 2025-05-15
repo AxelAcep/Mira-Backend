@@ -9,7 +9,7 @@ const NotFoundMiddleware = require("./middlewares/NotFoundHandler");
 const ErrorHandlerMiddleware = require("./middlewares/ErrorHandler");
 
 const app = express();
-const port = 5400;
+const port = 5500;
 
 app.use(
   session({
