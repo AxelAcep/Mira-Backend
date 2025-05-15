@@ -1,0 +1,68 @@
+  // Prisma schema
+
+  generator client {
+    provider = "prisma-client-js"
+  }
+
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
+
+  enum Prodi {
+    S1_Informatika
+    S1_Sistem_Informasi
+    D3_Sistem_Informasi
+  }
+
+  model dosen {
+    nidn               String   @id @default(cuid())
+    nama               String?
+    email              String   @unique
+    password           String?
+    fotoProfil         String?
+    jabatanFungsional  String?
+    prodi              Prodi?
+    kompetensi         Int?
+
+    // Relasi
+    kelas              kelas[]
+  }
+
+  model mahasiswa {
+    nim            String   @id @default(cuid())
+    nama           String?
+    prodi          Prodi?
+    linkFirebase   String?
+
+    // Relasi
+    kelasMahasiswa kelasMahasiswa[]
+  }
+
+  model matakuliah {
+    kodeMatakuliah  String  @id @default(cuid())
+    namaMatakuliah  String?
+
+    // Relasi
+    kelas           kelas[]
+    kelasMahasiswa  kelasMahasiswa[]
+  }
+
+  model kelas {
+    kodeKelas       String  @id @default(cuid())
+    kodeMatakuliah  String
+    kodeDosen       String
+
+    matakuliah      matakuliah @relation(fields: [kodeMatakuliah], references: [kodeMatakuliah])
+    dosen           dosen      @relation(fields: [kodeDosen], references: [nidn])
+  }
+
+  model kelasMahasiswa {
+    kodeMatakuliah  String
+    kodeMahasiswa   String
+
+    matakuliah      matakuliah  @relation(fields: [kodeMatakuliah], references: [kodeMatakuliah])
+    mahasiswa       mahasiswa   @relation(fields: [kodeMahasiswa], references: [nim])
+
+    @@id([kodeMatakuliah, kodeMahasiswa]) // composite primary key
+  }
