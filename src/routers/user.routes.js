@@ -27,4 +27,8 @@ router.get("/test", (req, res) => {
   res.send("Diaz Karbit");
 });
 
+router.get("/test2", (req, res) => {
+  res.send("Kasumi Alice");
+});
+
 module.exports = router;
