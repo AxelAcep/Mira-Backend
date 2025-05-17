@@ -6,27 +6,27 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 passport.use(new LocalStrategy(
-  { usernameField: 'email' },
-  async (email, password, done) => {
+  { usernameField: 'nidn' }, // pakai 'nidn' sebagai username
+  async (nidn, password, done) => {
     try {
-      const user = await prisma.customer.findUnique({ where: { email } });
+      const dosen = await prisma.dosen.findUnique({ where: { nidn } });
 
-      if (!user) {
-        return done(null, false, { message: 'User not found' });
+      if (!dosen) {
+        return done(null, false, { message: 'Dosen Tidak Ditemukan' });
       }
 
-      const isPasswordValid = user.password === password; 
+      const isPasswordValid = dosen.password === password; 
       if (!isPasswordValid) {
         return done(null, false, { message: 'Incorrect password' });
       }
 
       const token = jwt.sign(
-        { id: user.id, email: user.email },
+        { nidn: dosen.nidn }, // hanya menggunakan nidn
         process.env.JWT_SECRET,
-        { expiresIn: '1h' } 
+        { expiresIn: '1h' }
       );
 
-      return done(null, { user, token }); 
+      return done(null, { dosen, token });
     } catch (err) {
       return done(err);
     }
@@ -40,12 +40,12 @@ function authenticateJWT(req, res, next) {
     return res.status(401).json({ message: 'Unauthorized. Token is missing.' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET, (err, dosen) => {
     if (err) {
       return res.status(403).json({ message: 'Invalid token.' });
     }
 
-    req.user = user; 
+    req.dosen = dosen; // menyimpan informasi dosen di req
     next();
   });
 }

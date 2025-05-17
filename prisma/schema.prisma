@@ -23,7 +23,7 @@
     fotoProfil         String?
     jabatanFungsional  String?
     prodi              Prodi?
-    kompetensi         Int?
+    kompetensi String? @db.Text
 
     // Relasi
     kelas              kelas[]
@@ -42,6 +42,7 @@
   model matakuliah {
     kodeMatakuliah  String  @id @default(cuid())
     namaMatakuliah  String?
+    sks             Int?
 
     // Relasi
     kelas           kelas[]
@@ -52,6 +53,7 @@
     kodeKelas       String  @id @default(cuid())
     kodeMatakuliah  String
     kodeDosen       String
+    jadwal          String?
 
     matakuliah      matakuliah @relation(fields: [kodeMatakuliah], references: [kodeMatakuliah])
     dosen           dosen      @relation(fields: [kodeDosen], references: [nidn])

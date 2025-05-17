@@ -5,7 +5,6 @@ const {
   loginDosen,
   logout,
   getDosenByNidn,
-  createMahasiswa
 } = require("../controllers");
 
 const {loginRateLimiter} = require('../middlewares/RateLimit');
@@ -15,8 +14,6 @@ const router = express.Router();
 router.post('/login', loginRateLimiter ,loginDosen);
 router.get('/profile', authenticateJWT , getDosenByNidn);
 router.get('/logout', authenticateJWT ,logout);
-
-router.post('/mahasiswa', authenticateJWT, createMahasiswa);
 
 router.get("/test2", authenticateJWT ,(req, res) => {res.send("Kasumi Alice");}); // debugging
 
