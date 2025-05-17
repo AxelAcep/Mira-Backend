@@ -1,70 +1,66 @@
-  // Prisma schema
+generator client {
+  provider = "prisma-client-js"
+}
 
-  generator client {
-    provider = "prisma-client-js"
-  }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
-  datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-  }
+enum Prodi {
+  S1_Informatika
+  S1_Sistem_Informasi
+  D3_Sistem_Informasi
+}
 
-  enum Prodi {
-    S1_Informatika
-    S1_Sistem_Informasi
-    D3_Sistem_Informasi
-  }
+model Dosen {
+  nidn               String    @id @default(cuid())
+  nama               String?
+  email              String    @unique
+  password           String?
+  fotoProfil         String?
+  jabatanFungsional  String?
+  prodi              Prodi?
+  kompetensi         String?   @db.Text
 
-  model dosen {
-    nidn               String   @id @default(cuid())
-    nama               String?
-    email              String   @unique
-    password           String?
-    fotoProfil         String?
-    jabatanFungsional  String?
-    prodi              Prodi?
-    kompetensi String? @db.Text
+  kelas              Kelas[]
+}
 
-    // Relasi
-    kelas              kelas[]
-  }
+model Mahasiswa {
+  nim            String          @id @default(cuid())
+  nama           String?
+  prodi          Prodi?
+  linkFirebase   String?
 
-  model mahasiswa {
-    nim            String   @id @default(cuid())
-    nama           String?
-    prodi          Prodi?
-    linkFirebase   String?
+  kelasMahasiswa KelasMahasiswa[]
+}
 
-    // Relasi
-    kelasMahasiswa kelasMahasiswa[]
-  }
+model Matakuliah {
+  kodeMatakuliah  String          @id @default(cuid())
+  namaMatakuliah  String?
+  sks             Int?
 
-  model matakuliah {
-    kodeMatakuliah  String  @id @default(cuid())
-    namaMatakuliah  String?
-    sks             Int?
+  kelas           Kelas[]
+  // kelasMahasiswa tidak perlu kalau tidak ada foreign key langsung
+}
 
-    // Relasi
-    kelas           kelas[]
-    kelasMahasiswa  kelasMahasiswa[]
-  }
+model Kelas {
+  kodeKelas       String          @id @default(cuid())
+  kodeMatakuliah  String
+  nidn            String
+  jadwal          String?
 
-  model kelas {
-    kodeKelas       String  @id @default(cuid())
-    kodeMatakuliah  String
-    kodeDosen       String
-    jadwal          String?
+  matakuliah      Matakuliah      @relation(fields: [kodeMatakuliah], references: [kodeMatakuliah])
+  dosen           Dosen           @relation(fields: [nidn], references: [nidn])
+  kelasMahasiswa  KelasMahasiswa[]
+}
 
-    matakuliah      matakuliah @relation(fields: [kodeMatakuliah], references: [kodeMatakuliah])
-    dosen           dosen      @relation(fields: [kodeDosen], references: [nidn])
-  }
+model KelasMahasiswa {
+  kodeKelas       String
+  kodeMahasiswa   String
 
-  model kelasMahasiswa {
-    kodeMatakuliah  String
-    kodeMahasiswa   String
+  kelas           Kelas         @relation(fields: [kodeKelas], references: [kodeKelas])
+  mahasiswa       Mahasiswa     @relation(fields: [kodeMahasiswa], references: [nim])
 
-    matakuliah      matakuliah  @relation(fields: [kodeMatakuliah], references: [kodeMatakuliah])
-    mahasiswa       mahasiswa   @relation(fields: [kodeMahasiswa], references: [nim])
-
-    @@id([kodeMatakuliah, kodeMahasiswa]) // composite primary key
-  }
+  @@id([kodeKelas, kodeMahasiswa])
+}

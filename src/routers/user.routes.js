@@ -5,7 +5,8 @@ const {
   loginDosen,
   logout,
   getDosenByNidn,
-  createMahasiswa
+  createMahasiswa,
+  getAllMahasiswa,
 } = require("../controllers");
 
 const {loginRateLimiter} = require('../middlewares/RateLimit');
@@ -17,6 +18,7 @@ router.get('/profile', authenticateJWT , getDosenByNidn);
 router.get('/logout', authenticateJWT ,logout);
 
 router.post('/mahasiswa', authenticateJWT, createMahasiswa);
+router.get('/mahasiswa', authenticateJWT, getAllMahasiswa);
 
 router.get("/test2", authenticateJWT ,(req, res) => {res.send("Kasumi Alice");}); // debugging
 

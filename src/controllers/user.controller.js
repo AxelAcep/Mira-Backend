@@ -24,6 +24,19 @@ const getDosenByNidn = async (req, res, next) => {
   }
 };
 
+const getAllMahasiswa = async (req, res, next) => {
+  try {
+    const mahasiswa = await prisma.mahasiswa.findMany();
+
+    return res.status(200).json({
+      message: "Success",
+      data: mahasiswa,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 const loginDosen = async (req, res, next) => {
   passport.authenticate('local', (err, data, info) => {
     if (err) return next(err);
@@ -99,9 +112,9 @@ const createMahasiswa = async (req, res, next) => {
   }
 };
 
-
 module.exports = {
   getDosenByNidn,
+  getAllMahasiswa,
   loginDosen,
   logout,
   createMahasiswa,

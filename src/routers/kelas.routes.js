@@ -1,19 +1,29 @@
 const express = require("express");
 const { passport, authenticateJWT } = require("../passport");
+const multer = require('multer');
+const upload = multer(); // pakai memory storage (buffer)
 
 const {
-  loginDosen,
-  logout,
-  getDosenByNidn,
+  addMatakuliah,
+  addMahasiswa,
+  createKelas,
+  getmatakuliah,
+  getKelasByDosen,
+  getMahasiswaByKelas,
+  uploudGambar,
 } = require("../controllers");
 
-const {loginRateLimiter} = require('../middlewares/RateLimit');
 
 const router = express.Router();
 
-router.post('/login', loginRateLimiter ,loginDosen);
-router.get('/profile', authenticateJWT , getDosenByNidn);
-router.get('/logout', authenticateJWT ,logout);
+router.post('/matakuliah', authenticateJWT ,addMatakuliah);
+router.post('/mahasiswa', authenticateJWT ,addMahasiswa);
+router.post('/kelas', authenticateJWT , createKelas);
+router.post('/upload', authenticateJWT, upload.single('file'), uploudGambar);
+
+router.get('/matakuliah', authenticateJWT ,getmatakuliah);
+router.get('/kelas', authenticateJWT ,getKelasByDosen);
+router.get('/mahasiswa/:kodeKelas', authenticateJWT ,getMahasiswaByKelas);
 
 router.get("/test2", authenticateJWT ,(req, res) => {res.send("Kasumi Alice");}); // debugging
 
