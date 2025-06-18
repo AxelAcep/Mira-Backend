@@ -11,6 +11,8 @@ const {
   getKelasByDosen,
   getMahasiswaByKelas,
   uploudGambar,
+  removeMahasiswa,
+  deleteImageFromSupabase,
 } = require("../controllers");
 
 
@@ -19,11 +21,14 @@ const router = express.Router();
 router.post('/matakuliah', authenticateJWT ,addMatakuliah);
 router.post('/mahasiswa', authenticateJWT ,addMahasiswa);
 router.post('/kelas', authenticateJWT , createKelas);
-router.post('/upload', authenticateJWT, upload.single('file'), uploudGambar);
+router.post('/upload', authenticateJWT, upload.array('images', 10), uploudGambar);
 
 router.get('/matakuliah', authenticateJWT ,getmatakuliah);
 router.get('/kelas', authenticateJWT ,getKelasByDosen);
 router.get('/mahasiswa/:kodeKelas', authenticateJWT ,getMahasiswaByKelas);
+
+router.delete('/mahasiswa', authenticateJWT ,removeMahasiswa); 
+router.delete('/delete-image', authenticateJWT ,deleteImageFromSupabase);
 
 router.get("/test2", authenticateJWT ,(req, res) => {res.send("Kasumi Alice");}); // debugging
 

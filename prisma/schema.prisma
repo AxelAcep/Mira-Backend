@@ -49,6 +49,7 @@ model Kelas {
   kodeMatakuliah  String
   nidn            String
   jadwal          String?
+  ruangan         String?
 
   matakuliah      Matakuliah      @relation(fields: [kodeMatakuliah], references: [kodeMatakuliah])
   dosen           Dosen           @relation(fields: [nidn], references: [nidn])

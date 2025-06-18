@@ -24,6 +24,53 @@ const getDosenByNidn = async (req, res, next) => {
   }
 };
 
+const getMahasiswaByNim = async (req, res, next) => {
+  try {
+    const nim = req.params.nim;
+
+    // Ambil data mahasiswa dari database
+    const mahasiswa = await prisma.mahasiswa.findUnique({
+      where: { nim },
+    });
+
+    if (!mahasiswa) {
+      return res.status(404).json({ message: "Mahasiswa tidak ditemukan" });
+    }
+
+    const folderPath = mahasiswa.linkFirebase; // Contoh: "mahasiswa/Axel/"
+
+    // Ambil daftar file dalam folder tersebut
+    const { data: files, error } = await supabase
+      .storage
+      .from('mira')
+      .list(folderPath);
+
+    if (error) {
+      return res.status(500).json({ message: "Gagal mengambil file dari Supabase", error: error.message });
+    }
+
+    // Buat URL publik untuk setiap file
+    const fileUrls = files.map(file => {
+      return {
+        name: file.name,
+        url: `${process.env.SUPABASE_URL}/storage/v1/object/public/mira/${folderPath}${file.name}`,
+      };
+    });
+
+    return res.status(200).json({
+      message: "Success",
+      data: {
+        mahasiswa,
+        files: fileUrls, // ini semua file dalam folder mahasiswa/Axel/
+      },
+    });
+
+  } catch (error) {
+    return next(error);
+  }
+};
+
+
 const getAllMahasiswa = async (req, res, next) => {
   try {
     const mahasiswa = await prisma.mahasiswa.findMany();
@@ -52,6 +99,7 @@ const loginDosen = async (req, res, next) => {
       dosen: {
         nidn: dosen.nidn,
         nama: dosen.nama, // opsional, jika ingin tampilkan nama
+        fotoProfil: dosen.fotoProfil, // opsional, jika ingin tampilkan prodi
       },
     });
   })(req, res, next);
@@ -91,7 +139,7 @@ const createMahasiswa = async (req, res, next) => {
     }
 
     // 3. Dapatkan URL folder
-    const folderUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/mira/mahasiswa/${encodeURIComponent(nama)}/`;
+    const folderUrl = `mahasiswa/${nama}/`; // Tanpa .init.txt
 
     // 4. Simpan ke database
     const mahasiswa = await prisma.mahasiswa.create({
@@ -118,4 +166,5 @@ module.exports = {
   loginDosen,
   logout,
   createMahasiswa,
+  getMahasiswaByNim,
 };

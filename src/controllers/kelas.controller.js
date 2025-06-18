@@ -28,7 +28,7 @@ const addMatakuliah = async (req, res, next) => {
 
 const createKelas = async (req, res, next) => {
 try {
-    const { kodeMatakuliah, jadwal } = req.body;
+    const { kodeMatakuliah, ruangan ,jadwal } = req.body;
     const nidn = req.dosen.nidn;
 
     // Generate random 3 letters + 5 digits
@@ -46,6 +46,7 @@ try {
         kodeMatakuliah,
         nidn,
         jadwal,
+        ruangan,
     },
     });
 
@@ -75,16 +76,29 @@ const getmatakuliah = async (req, res, next) => {
 const getKelasByDosen = async (req, res, next) => {
     try {
         const nidn = req.dosen.nidn;
-    
+
         const kelas = await prisma.kelas.findMany({
             where: {
                 nidn,
             },
+            include: {
+                matakuliah: { // Assuming 'matakuliah' is the relation field name in your Kelas model
+                    select: {
+                        namaMatakuliah: true, // Select only the course name
+                    },
+                },
+            },
         });
-    
+
+        // Map the results to include the course name directly in each class object
+        const kelasWithNamaMatakuliah = kelas.map(k => ({
+            ...k,
+            namaMatakuliah: k.matakuliah ? k.matakuliah.namaMatakuliah : null, // Handle cases where matakuliah might be null
+        }));
+
         return res.status(200).json({
             message: "Success",
-            data: kelas,
+            data: kelasWithNamaMatakuliah,
         });
     } catch (error) {
         return next(error);
@@ -113,85 +127,222 @@ const getMahasiswaByKelas = async (req, res, next) => {
     }
 }
 
-const addMahasiswa = async (req, res, next) => { 
+const addMahasiswa = async (req, res, next) => {
     try {
         const { kodeMahasiswa, kodeKelas } = req.body;
-    
-        const existing = await prisma.kelasMahasiswa.findFirst({
+
+        // 1. Periksa apakah Mahasiswa dengan kodeMahasiswa tersebut ada
+        const mahasiswaExists = await prisma.mahasiswa.findUnique({
+            where: {
+                nim: kodeMahasiswa // Asumsi 'nim' adalah primary key atau unique field untuk mahasiswa
+            }
+        });
+
+        if (!mahasiswaExists) {
+            return res.status(404).json({ // Menggunakan status 404 (Not Found) lebih tepat
+                message: "Mahasiswa tidak ditemukan",
+            });
+        }
+
+        // 2. Periksa apakah Mahasiswa sudah terdaftar di Kelas ini
+        const existingKelasMahasiswa = await prisma.kelasMahasiswa.findFirst({
             where: {
                 kodeMahasiswa,
                 kodeKelas
             },
-            });
+        });
 
-        if (existing) {
+        if (existingKelasMahasiswa) {
             return res.status(400).json({
-                message: "Mahasiswa sudah terdaftar",
+                message: "Mahasiswa sudah terdaftar di kelas ini", // Perbarui pesan agar lebih spesifik
             });
         }
-    
+
+        // 3. Jika Mahasiswa ada dan belum terdaftar di kelas ini, buat entri baru
         const daftarMahasiswa = await prisma.kelasMahasiswa.create({
             data: {
                 kodeMahasiswa,
                 kodeKelas,
             },
         });
-    
+
         return res.status(201).json({
-            message: "Mahasiswa Berhasil Ditambahkan",
+            message: "Mahasiswa Berhasil Ditambahkan ke Kelas", // Perbarui pesan
             data: daftarMahasiswa,
         });
     } catch (error) {
+        // Ini akan menangani error lain seperti masalah database, dll.
         return next(error);
     }
 }
 
 const uploudGambar = async (req, res, next) => {
-try {
-    const { nim } = req.body;
-    const file = req.file;
+    try {
+        const { nim } = req.body;
+        const files = req.files; // <-- Perubahan utama: Sekarang req.files (plural)
 
-    if (!file) {
-    return res.status(400).json({ message: "File tidak ditemukan" });
+        if (!files || files.length === 0) {
+            return res.status(400).json({ message: "Tidak ada file yang ditemukan." });
+        }
+
+        const mahasiswa = await prisma.mahasiswa.findUnique({
+            where: {
+                nim: nim,
+            },
+            select: { // Hanya ambil field yang dibutuhkan
+                nama: true,
+                // linkFirebase: true, // Jika masih ingin pakai linkFirebase
+            },
+        });
+
+        if (!mahasiswa) {
+            return res.status(404).json({ message: "Mahasiswa tidak ditemukan." });
+        }
+
+        const namaMahasiswa = mahasiswa.nama;
+        const bucketName = 'mira';
+        const uploadedFileDetails = []; // Untuk menyimpan detail setiap file yang berhasil diunggah
+
+        // Loop melalui setiap file yang diterima
+        for (const file of files) { // Iterasi setiap file dalam array req.files
+            const uploadPath = `mahasiswa/${namaMahasiswa}/${file.originalname}`; // Path untuk Supabase
+
+            console.log(`Mengunggah file: ${file.originalname} ke ${uploadPath} di bucket: ${bucketName}`);
+
+            const { error: uploadError } = await supabase
+                .storage
+                .from(bucketName)
+                .upload(uploadPath, file.buffer, {
+                    contentType: file.mimetype,
+                    upsert: true, // Akan menimpa jika sudah ada dengan nama yang sama
+                });
+
+            if (uploadError) {
+                // Jika ada satu file yang gagal, kita bisa memilih untuk:
+                // 1. Menghentikan seluruh proses dan mengembalikan error
+                // 2. Melanjutkan upload file lain dan hanya melaporkan file yang gagal
+                // Untuk contoh ini, kita akan menghentikan proses jika ada kegagalan upload.
+                console.error(`Gagal mengunggah file ${file.originalname}:`, uploadError);
+                return res.status(500).json({
+                    message: `Gagal mengunggah beberapa gambar. Kegagalan pada file: ${file.originalname}.`,
+                    error: uploadError.message
+                });
+            }
+
+            // Dapatkan URL publik setelah upload berhasil
+            const publicUrl = supabase.storage
+                .from(bucketName)
+                .getPublicUrl(uploadPath).data.publicUrl;
+
+            uploadedFileDetails.push({
+                filename: file.originalname,
+                folder: namaMahasiswa,
+                mimetype: file.mimetype,
+                size: file.size,
+                publicUrl: publicUrl, // Sertakan URL publik untuk setiap file
+            });
+        }
+
+        return res.status(200).json({
+            message: "Gambar-gambar berhasil diunggah.",
+            data: uploadedFileDetails, // Mengembalikan array detail file yang diunggah
+        });
+
+    } catch (error) {
+        console.error("Kesalahan tak terduga saat mengunggah gambar:", error);
+        return next(error);
     }
+};
 
-    const mahasiswa = await prisma.mahasiswa.findUnique({
-    where: {
-        nim: nim,
-    },
-    });
+const removeMahasiswa = async (req, res, next) => {
+    try {
+        const { nim, kodeKelas } = req.body;
 
-    if (!mahasiswa) {
-    return res.status(404).json({ message: "Mahasiswa tidak ditemukan" });
+        // Use the composite unique key in the where clause
+        const removedMahasiswa = await prisma.KelasMahasiswa.delete({
+            where: {
+                kodeKelas_kodeMahasiswa: { // This is the composite unique key
+                    kodeMahasiswa: nim,
+                    kodeKelas: kodeKelas,
+                },
+            },
+        });
+
+        return res.status(200).json({
+            message: "Mahasiswa Berhasil Dihapus",
+            data: removedMahasiswa, // Changed variable name to be consistent
+        });
+    } catch (error) {
+        // Handle specific error for record not found (P2025)
+        if (error.code === 'P2025') {
+            return res.status(404).json({
+                message: "Mahasiswa tidak ditemukan di kelas ini.",
+                error: error.message
+            });
+        }
+        return next(error);
     }
-
-    const namaMahasiswa = mahasiswa.nama
-
-    const { error: uploadError } = await supabase
-    .storage
-    .from('mira')
-    .upload(`mahasiswa/${namaMahasiswa}/${file.originalname}`, file.buffer, {
-        contentType: file.mimetype,
-        upsert: true,
-    });
-
-    if (uploadError) {
-    return res.status(500).json({ message: "Gagal mengunggah gambar", error: uploadError.message });
-    }
-
-    return res.status(200).json({
-    message: "Gambar berhasil diunggah",
-    data: {
-        filename: file.originalname,
-        folder: namaMahasiswa,
-        mimetype: file.mimetype,
-        size: file.size,
-    },
-    });
-
-} catch (error) {
-    return next(error);
 }
+
+const deleteImageFromSupabase = async (req, res, next) => {
+    try {
+        const { filePath } = req.body; // Path file yang diterima dari frontend
+
+        if (!filePath) {
+            return res.status(400).json({
+                message: "Parameter 'filePath' tidak boleh kosong."
+            });
+        }
+
+        const bucketName = 'mira'; // Sesuaikan dengan nama bucket Anda di Supabase
+
+        // --- Perbaikan pada bagian ini ---
+        // Cari posisi nama bucket dalam URL
+        const bucketIndex = filePath.indexOf(`/${bucketName}/`);
+        let pathInBucket;
+
+        if (bucketIndex !== -1) {
+            // Jika ditemukan, ambil string setelah "/bucketName/"
+            pathInBucket = filePath.substring(bucketIndex + `/${bucketName}/`.length);
+        } else {
+            // Fallback atau handle jika format URL tidak sesuai ekspektasi
+            // Ini bisa terjadi jika filePath hanya berupa path relatif dari bucket, bukan URL lengkap
+            pathInBucket = filePath; // Asumsi filePath sudah pathInBucket jika tidak ada URL lengkap
+            console.warn("Peringatan: filePath tidak mengandung '/bucketName/'. Mengasumsikan filePath adalah pathInBucket.");
+        }
+        // --- Akhir Perbaikan ---
+
+
+        console.log("Menghapus file dari Supabase Storage:", pathInBucket); // Debugging
+        console.log("Bucket Name:", bucketName); // Debugging
+
+        const { data, error } = await supabase.storage
+            .from(bucketName)
+            .remove([pathInBucket]);
+
+        if (error) {
+            console.error("Error menghapus gambar dari Supabase:", error);
+            if (error.statusCode === '404' || error.message.includes('not found')) {
+                 return res.status(404).json({
+                     message: "File gambar tidak ditemukan di Supabase Storage.",
+                     error: error.message
+                 });
+            }
+            return res.status(500).json({
+                message: "Gagal menghapus gambar dari Supabase.",
+                error: error.message
+            });
+        }
+
+        return res.status(200).json({
+            message: "Gambar berhasil dihapus dari Supabase.",
+            data: data,
+        });
+
+    } catch (error) {
+        console.error("Kesalahan tak terduga saat menghapus gambar:", error);
+        return next(error);
+    }
 };
 
 
@@ -204,4 +355,6 @@ module.exports = {
     getKelasByDosen,
     getMahasiswaByKelas,
     uploudGambar,
+    removeMahasiswa,
+    deleteImageFromSupabase,
 };
