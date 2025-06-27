@@ -163,14 +163,41 @@ const deleteRecap = async (req, res) => {
 const getMahasiswaByRecap = async (req, res) => {
     try {
         const { recapId } = req.params;
+
         if (!recapId) {
             throw new ClientError("Recap ID is required", 400);
         }
+
         const kehadiran = await prisma.kehadiran.findMany({
             where: {
                 kodeRecap: recapId,
-            },});
-        res.status(200).json({ message: 'Recap Search successfully.', kehadiran });
+            },
+            // --- START: NEW/MODIFIED CODE ---
+            // Include the related Mahasiswa (Student) data
+            include: {
+                // Assuming 'mahasiswa' is the relation name defined in your Prisma schema
+                // between Kehadiran and Mahasiswa
+                mahasiswa: {
+                    select: {
+                        nama: true, // Select the 'nama' field from the related Mahasiswa
+                    },
+                },
+            },
+            // --- END: NEW/MODIFIED CODE ---
+        });
+
+        // --- START: Transform data to include nama directly in each entry ---
+        const transformedKehadiran = kehadiran.map(entry => ({
+            nim: entry.nim, // Assuming 'nim' is directly on the Kehadiran model
+            kodeRecap: entry.kodeRecap,
+            hadir: entry.hadir,
+            // Access the nama from the included mahasiswa object
+            nama: entry.mahasiswa ? entry.mahasiswa.nama : 'Nama Tidak Ditemukan'
+        }));
+        // --- END: Transform data ---
+
+        res.status(200).json({ message: 'Recap Search successfully.', kehadiran: transformedKehadiran });
+
     } catch (error) {
         console.error("Error fetching mahasiswa by recap:", error);
         throw error;
