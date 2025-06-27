@@ -123,7 +123,7 @@ const createMahasiswa = async (req, res, next) => {
     }
 
     // 2. Buat folder kosong di Supabase
-    const folderPath = `mahasiswa/${nama}/.init.txt`; // .init.txt sebagai dummy agar folder tercipta
+    const folderPath = `mahasiswa/${nim}/.init.txt`; // .init.txt sebagai dummy agar folder tercipta
     const dummyFile = Buffer.from('initial file');
 
     const { error: uploadError } = await supabase

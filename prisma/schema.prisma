@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
 }
 
 enum Prodi {
@@ -14,38 +14,38 @@ enum Prodi {
 }
 
 model Dosen {
-  nidn               String    @id @default(cuid())
-  nama               String?
-  email              String    @unique
-  password           String?
-  fotoProfil         String?
-  jabatanFungsional  String?
-  prodi              Prodi?
-  kompetensi         String?   @db.Text
+  nidn              String    @id // Hapus @default(cuid())
+  nama              String?
+  email             String    @unique
+  password          String?
+  fotoProfil        String?
+  jabatanFungsional String?
+  prodi             Prodi?
+  kompetensi        String?   @db.Text
 
-  kelas              Kelas[]
+  kelas             Kelas[]
 }
 
 model Mahasiswa {
-  nim            String          @id @default(cuid())
-  nama           String?
-  prodi          Prodi?
-  linkFirebase   String?
+  nim             String          @id // Hapus @default(cuid())
+  nama            String?
+  prodi           Prodi?
+  linkFirebase    String?
 
-  kelasMahasiswa KelasMahasiswa[]
+  kelasMahasiswa  KelasMahasiswa[]
+  kehadiran       Kehadiran[]
 }
 
 model Matakuliah {
-  kodeMatakuliah  String          @id @default(cuid())
+  kodeMatakuliah  String          @id // Hapus @default(cuid())
   namaMatakuliah  String?
   sks             Int?
 
   kelas           Kelas[]
-  // kelasMahasiswa tidak perlu kalau tidak ada foreign key langsung
 }
 
 model Kelas {
-  kodeKelas       String          @id @default(cuid())
+  kodeKelas       String          @id // Hapus @default(cuid())
   kodeMatakuliah  String
   nidn            String
   jadwal          String?
@@ -54,14 +54,37 @@ model Kelas {
   matakuliah      Matakuliah      @relation(fields: [kodeMatakuliah], references: [kodeMatakuliah])
   dosen           Dosen           @relation(fields: [nidn], references: [nidn])
   kelasMahasiswa  KelasMahasiswa[]
+  recap           Recap[]
+}
+
+model Recap {
+  kodeRecap   String   @id // Hapus @default(cuid())
+  kodeKelas   String
+  tanggal     DateTime @default(now())
+  pertemuan   String
+  durasi      String
+
+  kelas       Kelas    @relation(fields: [kodeKelas], references: [kodeKelas])
+  kehadiran   Kehadiran[]
+}
+
+model Kehadiran {
+  nim         String
+  kodeRecap   String
+  hadir       Boolean
+
+  mahasiswa   Mahasiswa @relation(fields: [nim], references: [nim])
+  recap       Recap     @relation(fields: [kodeRecap], references: [kodeRecap])
+
+  @@id([nim, kodeRecap])
 }
 
 model KelasMahasiswa {
   kodeKelas       String
   kodeMahasiswa   String
 
-  kelas           Kelas         @relation(fields: [kodeKelas], references: [kodeKelas])
-  mahasiswa       Mahasiswa     @relation(fields: [kodeMahasiswa], references: [nim])
+  kelas           Kelas           @relation(fields: [kodeKelas], references: [kodeKelas])
+  mahasiswa       Mahasiswa       @relation(fields: [kodeMahasiswa], references: [nim])
 
   @@id([kodeKelas, kodeMahasiswa])
 }
