@@ -24,6 +24,38 @@ const getDosenByNidn = async (req, res, next) => {
   }
 };
 
+const getDetailDosen = async (req, res, next) => {
+  try{
+    const {nidn} = req.params;
+
+    const dosen = await prisma.dosen.findUnique({
+      where: {
+        nidn,
+      }
+    });
+    return res.status(200).json({
+      message: "Success",
+      data: dosen,
+    });
+  } catch(error){
+    return next(error)
+  }
+}
+
+const getAllDosen = async (req, res, next) => {
+  try {
+
+    const dosen = await prisma.dosen.findMany();
+
+    return res.status(200).json({
+      message: "Success",
+      data: dosen,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const getMahasiswaByNim = async (req, res, next) => {
   try {
     const nim = req.params.nim;
@@ -93,7 +125,20 @@ const loginDosen = async (req, res, next) => {
 
     const { dosen, token } = data;
 
-    res.json({
+    if(dosen.nidn == "00000"){
+      res.json({
+      message: 'Admin Mode',
+      token,
+      dosen: {
+        nidn: dosen.nidn,
+        nama: dosen.nama, // opsional, jika ingin tampilkan nama
+        fotoProfil: dosen.fotoProfil, // opsional, jika ingin tampilkan prodi
+      },
+    });
+    }
+    
+    else{
+      res.json({
       message: 'Login successful',
       token,
       dosen: {
@@ -102,12 +147,46 @@ const loginDosen = async (req, res, next) => {
         fotoProfil: dosen.fotoProfil, // opsional, jika ingin tampilkan prodi
       },
     });
+    }
   })(req, res, next);
 };
 
 const logout = async (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 };
+
+const createDosen = async (req, res, next) => {
+  try{
+    const {nidn, nama, email, password, fotoProfil, jabatanFungsional, prodi, kompetensi} = req.body
+
+    const existing = await prisma.dosen.findUnique({
+      where: {nidn},
+    });
+
+    if(existing){
+      return res.status(400).json({message: "Dosen Sudah Didaftarkan."});
+    }
+
+    const dosen = await prisma.dosen.create({
+      data: {
+        nidn,
+        nama,
+        email,
+        password,
+        fotoProfil,
+        jabatanFungsional,
+        prodi,
+        kompetensi
+      }
+    })
+    return res.status(201).json({
+      message: "Mahasiswa Berhasil Ditambahkan",
+      data: dosen,
+    });
+  }catch(error){
+    return next(error); 
+  }
+}
 
 const createMahasiswa = async (req, res, next) => {
   try {
@@ -167,4 +246,7 @@ module.exports = {
   logout,
   createMahasiswa,
   getMahasiswaByNim,
+  getAllDosen,
+  createDosen,
+  getDetailDosen
 };

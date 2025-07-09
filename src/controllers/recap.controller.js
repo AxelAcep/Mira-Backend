@@ -39,6 +39,18 @@ const getRecapByKelas = async (req, res) => {
         }
     }
 
+    const getAllRecap = async (req, res) => {
+    try{
+        
+        const recapData = await prisma.recap.findMany();
+        
+        res.status(200).json(recapData);
+        
+    }catch(error){
+        return next(error);
+    };
+}
+
 const createRecap = async (req, res) => {
     try {
         const { kodeKelas, dataMahasiswa, pertemuan, durasi } = req.body;
@@ -211,4 +223,5 @@ module.exports = {
     createRecap,
     deleteRecap,
     getMahasiswaByRecap,
+    getAllRecap,
 };

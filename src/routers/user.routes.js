@@ -8,6 +8,9 @@ const {
   createMahasiswa,
   getAllMahasiswa,
   getMahasiswaByNim,
+  getAllDosen,
+  createDosen,
+  getDetailDosen
 } = require("../controllers");
 
 const {loginRateLimiter} = require('../middlewares/RateLimit');
@@ -16,10 +19,14 @@ const router = express.Router();
 
 router.post('/login', loginRateLimiter ,loginDosen);
 router.get('/profile', authenticateJWT , getDosenByNidn);
+router.get('/dosen/:nidn', authenticateJWT , getDetailDosen);
 router.get('/logout', authenticateJWT ,logout);
 
 router.post('/mahasiswa', authenticateJWT, createMahasiswa);
 router.get('/mahasiswa', authenticateJWT, getAllMahasiswa);
+
+router.get('/dosen', authenticateJWT, getAllDosen);
+router.post('/dosen', authenticateJWT, createDosen);
 
 router.get('/mahasiswa/:nim', authenticateJWT, getMahasiswaByNim);
 

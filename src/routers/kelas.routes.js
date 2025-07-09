@@ -13,6 +13,7 @@ const {
   uploudGambar,
   removeMahasiswa,
   deleteImageFromSupabase,
+  getAllKelas,
 } = require("../controllers");
 
 
@@ -26,6 +27,7 @@ router.post('/upload', authenticateJWT, upload.array('images', 10), uploudGambar
 router.get('/matakuliah', authenticateJWT ,getmatakuliah);
 router.get('/kelas', authenticateJWT ,getKelasByDosen);
 router.get('/mahasiswa/:kodeKelas', authenticateJWT ,getMahasiswaByKelas);
+router.get('/kelasAll', authenticateJWT, getAllKelas)
 
 router.delete('/mahasiswa', authenticateJWT ,removeMahasiswa); 
 router.delete('/delete-image', authenticateJWT ,deleteImageFromSupabase);

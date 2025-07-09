@@ -127,6 +127,27 @@ const getMahasiswaByKelas = async (req, res, next) => {
     }
 }
 
+const getAllKelas = async (req, res, next) => {
+    try {
+        const kelas = await prisma.kelas.findMany({
+            include: {
+                matakuliah: { // Assuming 'matakuliah' is the relation field name in your Kelas model
+                    select: {
+                        namaMatakuliah: true, // Select only the course name
+                    },
+                },
+            },
+        });
+
+        return res.status(200).json({
+            message: "Success",
+            data: kelas,
+        })
+    } catch(error) {
+        return next(error);
+    }
+}
+
 const addMahasiswa = async (req, res, next) => {
     try {
         const { kodeMahasiswa, kodeKelas } = req.body;
@@ -357,4 +378,5 @@ module.exports = {
     uploudGambar,
     removeMahasiswa,
     deleteImageFromSupabase,
+    getAllKelas,
 };
