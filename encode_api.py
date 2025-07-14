@@ -9,8 +9,8 @@ import shutil
 
 app = FastAPI()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://okopcegndkcirrzgtmhz.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rb3BjZWduZGtjaXJyemd0bWh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcyNzQ4ODIsImV4cCI6MjA2Mjg1MDg4Mn0.TBw4dEKR38pJdC7UsAv1yCYxqdp1maoR6tNFPPjFbzw")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "ENV_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "ENV_SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Lokasi penyimpanan sementara & hasil encoding
