@@ -1,9 +1,43 @@
 const { PrismaClient } = require("@prisma/client");
 const ClientError = require("../errors/ClientError");
-const passport = require('passport');
+const passport = require("passport");
 const { get } = require("http");
 const prisma = new PrismaClient();
-const supabase = require('../dataStorage'); 
+const supabase = require("../dataStorage");
+
+const trainMahasiswa = async (req, res, next) => {
+  try {
+    const { nim } = req.body;
+
+    if (!nim) {
+      return res.status(400).json({ message: "NIM tidak boleh kosong." });
+    }
+
+    // Kirim POST request ke FastAPI
+    const response = await axios.post("http://localhost:8000/encode", {
+      nim: nim,
+    });
+
+    // Kembalikan hasil response dari FastAPI ke frontend
+    return res.status(200).json({
+      message: response.data.message,
+      encoded_faces: response.data.encoded_faces,
+      uploaded_to_supabase: response.data.uploaded_to_supabase,
+      supabase_output_path: response.data.supabase_output_path,
+    });
+  } catch (error) {
+    // Jika ada error dari FastAPI
+    if (error.response) {
+      return res.status(error.response.status).json({
+        message:
+          error.response.data.detail ||
+          "Terjadi kesalahan pada backend Python.",
+      });
+    }
+
+    return next(error);
+  }
+};
 
 const getDosenByNidn = async (req, res, next) => {
   try {
@@ -25,26 +59,25 @@ const getDosenByNidn = async (req, res, next) => {
 };
 
 const getDetailDosen = async (req, res, next) => {
-  try{
-    const {nidn} = req.params;
+  try {
+    const { nidn } = req.params;
 
     const dosen = await prisma.dosen.findUnique({
       where: {
         nidn,
-      }
+      },
     });
     return res.status(200).json({
       message: "Success",
       data: dosen,
     });
-  } catch(error){
-    return next(error)
+  } catch (error) {
+    return next(error);
   }
-}
+};
 
 const getAllDosen = async (req, res, next) => {
   try {
-
     const dosen = await prisma.dosen.findMany();
 
     return res.status(200).json({
@@ -72,17 +105,19 @@ const getMahasiswaByNim = async (req, res, next) => {
     const folderPath = mahasiswa.linkFirebase; // Contoh: "mahasiswa/Axel/"
 
     // Ambil daftar file dalam folder tersebut
-    const { data: files, error } = await supabase
-      .storage
-      .from('mira')
+    const { data: files, error } = await supabase.storage
+      .from("mira")
       .list(folderPath);
 
     if (error) {
-      return res.status(500).json({ message: "Gagal mengambil file dari Supabase", error: error.message });
+      return res.status(500).json({
+        message: "Gagal mengambil file dari Supabase",
+        error: error.message,
+      });
     }
 
     // Buat URL publik untuk setiap file
-    const fileUrls = files.map(file => {
+    const fileUrls = files.map((file) => {
       return {
         name: file.name,
         url: `${process.env.SUPABASE_URL}/storage/v1/object/public/mira/${folderPath}${file.name}`,
@@ -96,12 +131,10 @@ const getMahasiswaByNim = async (req, res, next) => {
         files: fileUrls, // ini semua file dalam folder mahasiswa/Axel/
       },
     });
-
   } catch (error) {
     return next(error);
   }
 };
-
 
 const getAllMahasiswa = async (req, res, next) => {
   try {
@@ -114,57 +147,64 @@ const getAllMahasiswa = async (req, res, next) => {
   } catch (error) {
     return next(error);
   }
-}
+};
 
 const loginDosen = async (req, res, next) => {
-  passport.authenticate('local', (err, data, info) => {
+  passport.authenticate("local", (err, data, info) => {
     if (err) return next(err);
     if (!data) {
-      return res.status(401).json({ message: info.message || 'Login failed' });
+      return res.status(401).json({ message: info.message || "Login failed" });
     }
 
     const { dosen, token } = data;
 
-    if(dosen.nidn == "00000"){
+    if (dosen.nidn == "00000") {
       res.json({
-      message: 'Admin Mode',
-      token,
-      dosen: {
-        nidn: dosen.nidn,
-        nama: dosen.nama, // opsional, jika ingin tampilkan nama
-        fotoProfil: dosen.fotoProfil, // opsional, jika ingin tampilkan prodi
-      },
-    });
-    }
-    
-    else{
+        message: "Admin Mode",
+        token,
+        dosen: {
+          nidn: dosen.nidn,
+          nama: dosen.nama, // opsional, jika ingin tampilkan nama
+          fotoProfil: dosen.fotoProfil, // opsional, jika ingin tampilkan prodi
+        },
+      });
+    } else {
       res.json({
-      message: 'Login successful',
-      token,
-      dosen: {
-        nidn: dosen.nidn,
-        nama: dosen.nama, // opsional, jika ingin tampilkan nama
-        fotoProfil: dosen.fotoProfil, // opsional, jika ingin tampilkan prodi
-      },
-    });
+        message: "Login successful",
+        token,
+        dosen: {
+          nidn: dosen.nidn,
+          nama: dosen.nama, // opsional, jika ingin tampilkan nama
+          fotoProfil: dosen.fotoProfil, // opsional, jika ingin tampilkan prodi
+        },
+      });
     }
   })(req, res, next);
 };
 
 const logout = async (req, res) => {
-  res.status(200).json({ message: 'Logged out successfully' });
+  res.status(200).json({ message: "Logged out successfully" });
 };
 
 const createDosen = async (req, res, next) => {
-  try{
-    const {nidn, nama, email, password, fotoProfil, jabatanFungsional, prodi, kompetensi} = req.body
+  try {
+    const {
+      nidn,
+      nama,
+      email,
+      password,
+      fotoProfil,
+      jabatanFungsional,
+      prodi,
+      kompetensi,
+    } = req.body;
 
     const existing = await prisma.dosen.findUnique({
-      where: {nidn},
+      where: { nidn },
     });
 
-    if(existing){
-      return res.status(400).json({message: "Dosen Sudah Didaftarkan."});
+    if (existing) {
+      return res.status(400).json({ message: "Dosen Sudah Didaftarkan." });
     }
 
     const dosen = await prisma.dosen.create({
@@ -176,17 +216,17 @@ const createDosen = async (req, res, next) => {
         fotoProfil,
         jabatanFungsional,
         prodi,
-        kompetensi
-      }
-    })
+        kompetensi,
+      },
+    });
     return res.status(201).json({
       message: "Mahasiswa Berhasil Ditambahkan",
       data: dosen,
     });
-  }catch(error){
-    return next(error); 
+  } catch (error) {
+    return next(error);
   }
-}
+};
 
 const createMahasiswa = async (req, res, next) => {
   try {
@@ -198,23 +238,27 @@ const createMahasiswa = async (req, res, next) => {
     });
 
     if (existing) {
-      return res.status(400).json({ message: "Mahasiswa sudah pernah didaftarkan." });
+      return res
+        .status(400)
+        .json({ message: "Mahasiswa sudah pernah didaftarkan." });
     }
 
     // 2. Buat folder kosong di Supabase
     const folderPath = `mahasiswa/${nim}/.init.txt`; // .init.txt sebagai dummy agar folder tercipta
-    const dummyFile = Buffer.from('initial file');
+    const dummyFile = Buffer.from("initial file");
 
-    const { error: uploadError } = await supabase
-      .storage
-      .from('mira') // gunakan nama bucket kamu
+    const { error: uploadError } = await supabase.storage
+      .from("mira") // gunakan nama bucket kamu
       .upload(folderPath, dummyFile, {
-        contentType: 'text/plain',
-        upsert: true
+        contentType: "text/plain",
+        upsert: true,
       });
 
     if (uploadError) {
-      return res.status(500).json({ message: "Gagal membuat folder di Supabase", error: uploadError.message });
+      return res.status(500).json({
+        message: "Gagal membuat folder di Supabase",
+        error: uploadError.message,
+      });
     }
 
     // 3. Dapatkan URL folder
@@ -248,5 +292,6 @@ module.exports = {
   getMahasiswaByNim,
   getAllDosen,
   createDosen,
-  getDetailDosen
+  getDetailDosen,
+  trainMahasiswa,
 };
