@@ -16,6 +16,6 @@ router.get('/mahasiswa/:recapId', authenticateJWT, getMahasiswaByRecap ); // Ass
 
 router.post('/kelas', authenticateJWT, createRecap);
 
-router.delete('/kelas/:recapId', authenticateJWT, deleteRecap);
+router.delete('/kelas', authenticateJWT, deleteRecap);
 
 module.exports = router;

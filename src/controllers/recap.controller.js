@@ -139,7 +139,7 @@ const createRecap = async (req, res) => {
 
 const deleteRecap = async (req, res) => {
     try {
-        const { recapId } = req.params; // Ambil recapId dari parameter URL
+        const { recapId } = req.body; // Ambil recapId dari parameter URL
 
         if (!recapId) {
             return res.status(400).json({ message: 'Recap ID is required.' });

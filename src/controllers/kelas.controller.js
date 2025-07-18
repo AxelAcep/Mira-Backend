@@ -4,6 +4,62 @@ const passport = require("passport");
 const { get } = require("http");
 const prisma = new PrismaClient();
 const supabase = require("../dataStorage");
+const axios = require("axios");
+
+
+const downloadModel = async (req, res, next) => {
+    try {
+        const { kodeKelas } = req.body;
+
+        if (!kodeKelas) {
+            return res.status(400).json({ message: 'kodeKelas is required.' });
+        }
+
+        const bucketName = 'mira'; // Assuming your bucket name is 'mira' based on your previous description
+        const folderPath = 'mahasiswa/model';
+        const fileName = `${kodeKelas}.dat`; // Assuming the file name *is* the kodeKelas, e.g., 'model_A123'
+
+        // Construct the full path to the file in Supabase Storage
+        const filePath = `${folderPath}/${fileName}`;
+
+        // Get the public URL for the file.
+        // For downloading, it's often better to use the signed URL or stream directly if the file isn't public.
+        // For simplicity, let's assume direct download via `createReadStream`.
+
+        // Fetch the file as a Blob (Binary Large Object)
+        const { data, error } = await supabase.storage
+            .from(bucketName)
+            .download(filePath);
+
+        if (error) {
+            if (error.message.includes('not found')) {
+                return res.status(404).json({ message: `Model with kodeKelas ${kodeKelas} not found.` });
+            }
+            console.error('Error downloading from Supabase:', error);
+            return next(error);
+        }
+
+        if (!data) {
+             return res.status(404).json({ message: `Model with kodeKelas ${kodeKelas} not found or empty.` });
+        }
+
+        // Convert the Blob to a Buffer to send as a response
+        const buffer = Buffer.from(await data.arrayBuffer());
+
+        // Set the appropriate headers for file download
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Type', data.type || 'application/octet-stream'); // Use Blob's type or generic binary
+
+        // Send the file buffer
+        res.send(buffer);
+
+        console.log(`Model ${fileName} downloaded successfully.`);
+
+    } catch (error) {
+        console.error('Error in useModel:', error);
+        return next(error);
+    }
+};
 
 const addMatakuliah = async (req, res, next) => {
     try {
@@ -220,6 +276,7 @@ const uploudGambar = async (req, res, next) => {
             select: {
                 // Hanya ambil field yang dibutuhkan
                 nama: true,
+                nim: true
                 // linkFirebase: true, // Jika masih ingin pakai linkFirebase
             },
         });
@@ -230,7 +287,7 @@ const uploudGambar = async (req, res, next) => {
                 .json({ message: "Mahasiswa tidak ditemukan." });
         }
 
-        const namaMahasiswa = mahasiswa.nama;
+        const namaMahasiswa = mahasiswa.nim;
         const bucketName = "mira";
         const uploadedFileDetails = []; // Untuk menyimpan detail setiap file yang berhasil diunggah
 
@@ -388,21 +445,39 @@ const deleteImageFromSupabase = async (req, res, next) => {
 
 const mergeEncodings = async (req, res, next) => {
     try {
-        const { kodeKelas, nim_list } = req.body;
+        const { kodeKelas } = req.body;
 
-        if (!kodeKelas || !Array.isArray(nim_list) || nim_list.length === 0) {
-            return res
-                .status(400)
-                .json({
-                    message: "kodeKelas dan nim_list wajib diisi dan valid.",
-                });
+        if (!kodeKelas) {
+            return res.status(400).json({
+                message: "kodeKelas wajib diisi.",
+            });
+        }
+
+        // 1. Fetch nim_list from the database using kodeKelas
+        const kelasMahasiswa = await prisma.kelasMahasiswa.findMany({
+            where: {
+                kodeKelas: kodeKelas,
+            },
+            select: {
+                kodeMahasiswa: true, // We only need the nim (kodeMahasiswa)
+            },
+        });
+
+        // Extract nims into a simple array
+        const nim_list = kelasMahasiswa.map(km => km.kodeMahasiswa);
+
+        // Optional: Check if nim_list is empty after fetching from DB
+        if (nim_list.length === 0) {
+            return res.status(404).json({
+                message: "Tidak ada mahasiswa ditemukan untuk kodeKelas ini.",
+            });
         }
 
         const response = await axios.post(
             "http://localhost:8000/merge-encodings",
             {
                 kodeKelas,
-                nim_list,
+                nim_list, // Now nim_list comes from the database
             },
         );
 
@@ -418,6 +493,8 @@ const mergeEncodings = async (req, res, next) => {
         });
     } catch (error) {
         if (error.response) {
+            // Log the actual error response from the Python backend for debugging
+            console.error("Error from Python backend:", error.response.data); 
             return res.status(error.response.status).json({
                 message:
                     error.response.data.detail ||
@@ -425,9 +502,146 @@ const mergeEncodings = async (req, res, next) => {
             });
         }
 
+        // Log the full error object for better debugging
+        console.error("Unexpected error in mergeEncodings:", error);
         return next(error);
     }
 };
+
+const deleteKelas = async (req, res, next) => {
+    try {
+        const { kodeKelas } = req.body;
+
+        console.log(kodeKelas);
+
+        if (!kodeKelas) {
+            return res.status(400).json({
+                message: "kodeKelas wajib diisi.",
+            });
+        }
+
+        // Check if the class exists
+        const existingKelas = await prisma.kelas.findUnique({
+            where: { kodeKelas: kodeKelas },
+        });
+
+        if (!existingKelas) {
+            return res.status(404).json({
+                message: `Kelas dengan kodeKelas ${kodeKelas} tidak ditemukan.`,
+            });
+        }
+
+        // --- Manual Cascade Deletion Order ---
+
+        // 1. Delete Kehadiran records associated with Recaps of this Kelas
+        //    First, find all Recaps related to this Kelas
+        const recapsToDelete = await prisma.recap.findMany({
+            where: { kodeKelas: kodeKelas },
+            select: { kodeRecap: true } // Only select the kodeRecap
+        });
+
+        const recapKodes = recapsToDelete.map(recap => recap.kodeRecap);
+
+        if (recapKodes.length > 0) {
+            await prisma.kehadiran.deleteMany({
+                where: {
+                    kodeRecap: {
+                        in: recapKodes // Delete all Kehadiran where kodeRecap is in the list of recaps related to this class
+                    }
+                }
+            });
+            console.log(`Deleted ${recapKodes.length} Kehadiran records for class ${kodeKelas}`);
+        }
+
+        // 2. Delete Recap records associated with this Kelas
+        await prisma.recap.deleteMany({
+            where: { kodeKelas: kodeKelas },
+        });
+        console.log(`Deleted Recap records for class ${kodeKelas}`);
+
+        // 3. Delete KelasMahasiswa records associated with this Kelas
+        await prisma.kelasMahasiswa.deleteMany({
+            where: { kodeKelas: kodeKelas },
+        });
+        console.log(`Deleted KelasMahasiswa records for class ${kodeKelas}`);
+
+
+        // 4. Finally, delete the Kelas record itself
+        await prisma.kelas.delete({
+            where: { kodeKelas: kodeKelas },
+        });
+        console.log(`Deleted Kelas ${kodeKelas}`);
+
+        return res.status(200).json({
+            message: `Kelas dengan kodeKelas ${kodeKelas} dan seluruh data terkait berhasil dihapus.`,
+        });
+
+    } catch (error) {
+        console.error("Error deleting class:", error);
+        // Pass the error to the next middleware (if you have an error handling middleware)
+        return next(error);
+    } finally {
+        await prisma.$disconnect(); // Disconnect Prisma client after operation
+    }
+};
+
+const editKelas = async (req, res, next) => {
+  try {
+    const { kodeMk, kodeKelas, ruangan, waktu } = req.body;
+
+    // First, check if the class exists
+    const existingKelas = await prisma.kelas.findUnique({
+      where: {
+        kodeKelas: kodeKelas,
+      },
+    });
+
+    if (!existingKelas) {
+      return res.status(404).json({ message: 'Class not found.' });
+    }
+
+    // Prepare data for update. Only include fields that are provided in the request body.
+    const updateData = {};
+    if (kodeMk) {
+      // Validate if kodeMk (kodeMatakuliah) exists in Matakuliah table
+      const matakuliahExists = await prisma.matakuliah.findUnique({
+        where: { kodeMatakuliah: kodeMk },
+      });
+      if (!matakuliahExists) {
+        return res.status(400).json({ message: 'Invalid Matakuliah Code.' });
+      }
+      updateData.kodeMatakuliah = kodeMk;
+    }
+    if (ruangan) {
+      updateData.ruangan = ruangan;
+    }
+    if (waktu) { // Assuming 'waktu' corresponds to 'jadwal' in your Prisma model
+      updateData.jadwal = waktu;
+    }
+
+    // Perform the update operation
+    const updatedKelas = await prisma.kelas.update({
+      where: {
+        kodeKelas: kodeKelas,
+      },
+      data: updateData,
+      include: { // Optionally include related data in the response
+        matakuliah: true,
+        dosen: true,
+      },
+    });
+
+    res.status(200).json({
+      message: 'Class updated successfully',
+      data: updatedKelas,
+    });
+
+  } catch (error) {
+    console.error('Error updating class:', error);
+    return next(error);
+  }
+};
+
 
 module.exports = {
     addMatakuliah,
@@ -441,4 +655,7 @@ module.exports = {
     deleteImageFromSupabase,
     getAllKelas,
     mergeEncodings,
+    downloadModel,
+    deleteKelas,
+    editKelas
 };

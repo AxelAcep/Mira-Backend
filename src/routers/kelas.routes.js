@@ -15,6 +15,9 @@ const {
   deleteImageFromSupabase,
   getAllKelas,
   mergeEncodings,
+  downloadModel,
+  deleteKelas,
+  editKelas,
 } = require("../controllers");
 
 const router = express.Router();
@@ -30,6 +33,8 @@ router.post(
 );
 router.post("/mergeEncodings", authenticateJWT, mergeEncodings);
 
+router.post("/downloadModel", authenticateJWT, downloadModel);
+
 router.get("/matakuliah", authenticateJWT, getmatakuliah);
 router.get("/kelas", authenticateJWT, getKelasByDosen);
 router.get("/mahasiswa/:kodeKelas", authenticateJWT, getMahasiswaByKelas);
@@ -37,6 +42,9 @@ router.get("/kelasAll", authenticateJWT, getAllKelas);
 
 router.delete("/mahasiswa", authenticateJWT, removeMahasiswa);
 router.delete("/delete-image", authenticateJWT, deleteImageFromSupabase);
+router.delete("/deleteKelas", authenticateJWT, deleteKelas)
+
+router.put("/edit", authenticateJWT, editKelas),
 
 router.get("/test2", authenticateJWT, (req, res) => {
   res.send("Kasumi Alice");

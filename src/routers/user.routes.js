@@ -30,6 +30,7 @@ router.post("/trainMahasiswa", authenticateJWT, trainMahasiswa);
 router.get("/dosen", authenticateJWT, getAllDosen);
 router.post("/dosen", authenticateJWT, createDosen);
 
+
 router.get("/mahasiswa/:nim", authenticateJWT, getMahasiswaByNim);
 
 router.get("/test2", authenticateJWT, (req, res) => {

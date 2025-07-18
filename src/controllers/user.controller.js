@@ -4,6 +4,7 @@ const passport = require("passport");
 const { get } = require("http");
 const prisma = new PrismaClient();
 const supabase = require("../dataStorage");
+const axios = require("axios");
 
 const trainMahasiswa = async (req, res, next) => {
   try {
@@ -262,7 +263,7 @@ const createMahasiswa = async (req, res, next) => {
     }
 
     // 3. Dapatkan URL folder
-    const folderUrl = `mahasiswa/${nama}/`; // Tanpa .init.txt
+    const folderUrl = `mahasiswa/${nim}/`; // Tanpa .init.txt
 
     // 4. Simpan ke database
     const mahasiswa = await prisma.mahasiswa.create({
