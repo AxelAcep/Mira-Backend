@@ -39,16 +39,27 @@ const getRecapByKelas = async (req, res) => {
         }
     }
 
-    const getAllRecap = async (req, res) => {
-    try{
-        
-        const recapData = await prisma.recap.findMany();
-        
+   const getAllRecap = async (req, res, next) => {
+    try {
+        const recapData = await prisma.recap.findMany({
+            include: {
+                kelas: {
+                    include: {
+                        dosen: {
+                            select: {
+                                nidn: true // Hanya ambil NIDN dari dosen
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
         res.status(200).json(recapData);
-        
-    }catch(error){
+
+    } catch (error) {
         return next(error);
-    };
+    }
 }
 
 const createRecap = async (req, res) => {
@@ -134,6 +145,54 @@ const createRecap = async (req, res) => {
     } catch (error) {
         console.error('Error creating recap:', error);
         res.status(500).json({ message: 'Terjadi kesalahan saat membuat recap.', error: error.message });
+    }
+};
+
+const updateKehadiran = async (req, res, next) => {
+    try {
+        const { kodeRecap, nim } = req.body;
+
+        // Validasi input
+        if (!kodeRecap || !nim) {
+            return res.status(400).json({ message: "Kode recap dan NIM diperlukan." });
+        }
+
+        // Cari data kehadiran yang ada
+        const existingKehadiran = await prisma.kehadiran.findUnique({
+            where: {
+                nim_kodeRecap: {
+                    nim: nim,
+                    kodeRecap: kodeRecap,
+                },
+            },
+        });
+
+        // Jika data kehadiran tidak ditemukan
+        if (!existingKehadiran) {
+            return res.status(404).json({ message: "Data kehadiran tidak ditemukan." });
+        }
+
+        // Ubah nilai 'hadir' menjadi kebalikannya
+        const updatedKehadiran = await prisma.kehadiran.update({
+            where: {
+                nim_kodeRecap: {
+                    nim: nim,
+                    kodeRecap: kodeRecap,
+                },
+            },
+            data: {
+                hadir: !existingKehadiran.hadir, // Mengubah true menjadi false, atau false menjadi true
+            },
+        });
+
+        res.status(200).json({
+            message: "Status kehadiran berhasil diperbarui.",
+            data: updatedKehadiran,
+        });
+
+    } catch (error) {
+        // Tangani error secara umum
+        next(error);
     }
 };
 
@@ -224,4 +283,5 @@ module.exports = {
     deleteRecap,
     getMahasiswaByRecap,
     getAllRecap,
+    updateKehadiran,
 };

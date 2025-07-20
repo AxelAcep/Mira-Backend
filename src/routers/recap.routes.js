@@ -6,6 +6,7 @@ const {
     createRecap,
     deleteRecap,
     getMahasiswaByRecap,
+    updateKehadiran,
 } = require("../controllers");
 
 const router = express.Router();
@@ -15,7 +16,7 @@ router.get('/mahasiswa/:recapId', authenticateJWT, getMahasiswaByRecap ); // Ass
 
 
 router.post('/kelas', authenticateJWT, createRecap);
-
+router.put('/kelas', authenticateJWT, updateKehadiran);
 router.delete('/kelas', authenticateJWT, deleteRecap);
 
 module.exports = router;
