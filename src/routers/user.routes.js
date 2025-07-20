@@ -12,6 +12,10 @@ const {
   createDosen,
   getDetailDosen,
   trainMahasiswa,
+  editMahasiswa,
+  deleteMahasiswa,
+  deleteDosen,
+  editDosen,
 } = require("../controllers");
 
 const { loginRateLimiter } = require("../middlewares/RateLimit");
@@ -30,8 +34,12 @@ router.post("/trainMahasiswa", authenticateJWT, trainMahasiswa);
 router.get("/dosen", authenticateJWT, getAllDosen);
 router.post("/dosen", authenticateJWT, createDosen);
 
+router.put("/mahasiswa", authenticateJWT, editMahasiswa)
+router.put("/dosen", authenticateJWT, editDosen)
 
 router.get("/mahasiswa/:nim", authenticateJWT, getMahasiswaByNim);
+router.delete("/mahasiswa", authenticateJWT, deleteMahasiswa);
+router.delete("/dosen", authenticateJWT, deleteDosen);
 
 router.get("/test2", authenticateJWT, (req, res) => {
   res.send("Kasumi Alice");
