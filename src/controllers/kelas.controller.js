@@ -118,6 +118,124 @@ const createKelas = async (req, res, next) => {
     }
 };
 
+const createKelasAdmin = async (req, res, next) => {
+    try {
+        const { kodeMatakuliah, ruangan, jadwal, nidn } = req.body;
+
+        // ✅ VALIDASI NIDN PADA MULAI
+        if (!nidn) {
+            return res.status(400).json({
+                message: "NIDN wajib diisi!"
+            });
+        }
+
+        // ✅ CEK NIDN APAKAH ADA DI DATABASE
+        const dosen = await prisma.dosen.findUnique({
+            where: {
+                nidn: nidn
+            }
+        });
+
+        if (!dosen) {
+            return res.status(401).json({
+                message: "NIDN dosen tidak ditemukan!",
+                error: "unauthorized_nidn"
+            });
+        }
+
+        // Generate random 3 letters + 5 digits
+        const generateKodeKelas = () => {
+            const letters = Math.random()
+                .toString(36)
+                .substring(2, 5)
+                .toUpperCase(); // 3 huruf
+            const numbers = Math.floor(10000 + Math.random() * 90000); // 5 angka
+            return `${letters}${numbers}`;
+        };
+
+        const KodeKelas = generateKodeKelas();
+
+        // ✅ CEK MATAKULIAH JUGA
+        const matakuliah = await prisma.matakuliah.findUnique({
+            where: {
+                kodeMatakuliah: kodeMatakuliah
+            }
+        });
+
+        if (!matakuliah) {
+            return res.status(400).json({
+                message: "Kode Matakuliah tidak ditemukan!",
+                error: "invalid_matakuliah"
+            });
+        }
+
+        const kelas = await prisma.kelas.create({
+            data: {
+                kodeKelas: KodeKelas,
+                kodeMatakuliah,
+                nidn,
+                jadwal,
+                ruangan,
+            },
+            include: {
+                matakuliah: true,
+                dosen: true
+            }
+        });
+
+        return res.status(201).json({
+            message: "Kelas Berhasil Dibuat!",
+            data: kelas,
+        });
+
+    } catch (error) {
+        console.error("Error create kelas:", error);
+        
+        // ✅ HANDLE PRISMA VALIDATION ERROR
+        if (error.code === 'P2002') {
+            return res.status(400).json({
+                message: "Data kelas dengan kombinasi tersebut sudah ada!",
+                error: "duplicate_data"
+            });
+        }
+
+        // ✅ HANDLE PRISMA CONNECTION ERROR
+        if (error.code === 'P1001' || error.code === 'P1017') {
+            return res.status(500).json({
+                message: "Koneksi database gagal. Coba lagi nanti.",
+                error: "database_connection"
+            });
+        }
+
+        return next(error);
+    }
+};
+
+
+
+const getKelasById = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const kelas = await prisma.kelas.findUnique({
+            where: {
+                kodeKelas: id,
+            },  
+        });
+
+        if (!kelas) {
+            return res.status(404).json({
+                message: `Kelas dengan kodeKelas ${id} tidak ditemukan.`,
+            });
+        }
+        return res.status(200).json({
+            message: "Success",
+            data: kelas,
+        });
+    } catch (error) {
+        return next(error);
+    }
+};  
+
 const getmatakuliah = async (req, res, next) => {
     try {
         const matakuliah = await prisma.matakuliah.findMany();
@@ -642,6 +760,132 @@ const editKelas = async (req, res, next) => {
   }
 };
 
+const editKelasAdmin = async (req, res, next) => {
+  try {
+    const { kodeMk, kodeKelas, ruangan, waktu, nidn } = req.body;
+
+    // First, check if the class exists
+    const existingKelas = await prisma.kelas.findUnique({
+      where: {
+        kodeKelas: kodeKelas,
+      },
+    });
+
+    if (!existingKelas) {
+      return res.status(404).json({ message: 'Class not found.' });
+    }
+
+    const dosen = await prisma.dosen.findUnique({
+        where: {
+            nidn: nidn
+        }
+    });
+
+    if (!dosen) {
+        return res.status(401).json({
+            message: "NIDN dosen tidak ditemukan!",
+            error: "unauthorized_nidn"
+        });
+    }
+
+    // Prepare data for update. Only include fields that are provided in the request body.
+    const updateData = {};
+    if (kodeMk) {
+      // Validate if kodeMk (kodeMatakuliah) exists in Matakuliah table
+      const matakuliahExists = await prisma.matakuliah.findUnique({
+        where: { kodeMatakuliah: kodeMk },
+      });
+      if (!matakuliahExists) {
+        return res.status(400).json({ message: 'Invalid Matakuliah Code.' });
+      }
+      updateData.kodeMatakuliah = kodeMk;
+    }
+    if (ruangan) {
+      updateData.ruangan = ruangan;
+    }
+    if (waktu) { // Assuming 'waktu' corresponds to 'jadwal' in your Prisma model
+      updateData.jadwal = waktu;
+    }
+    if (waktu) { // Assuming 'waktu' corresponds to 'jadwal' in your Prisma model
+      updateData.nidn = nidn;
+    }
+
+    // Perform the update operation
+    const updatedKelas = await prisma.kelas.update({
+      where: {
+        kodeKelas: kodeKelas,
+      },
+      data: updateData,
+      include: { // Optionally include related data in the response
+        matakuliah: true,
+        dosen: true,
+      },
+    });
+
+    res.status(200).json({
+      message: 'Class updated successfully',
+      data: updatedKelas,
+    });
+
+  } catch (error) {
+    console.error('Error updating class:', error);
+    return next(error);
+  }
+};
+
+
+const getMatakuliah = async (req, res, next) => {
+    try {
+        // 1. Ambil kodematakuliah dari parameter URL
+        const { kodematakuliah } = req.params; 
+
+        // 2. Gunakan findUnique() dengan objek 'where'
+        const matakuliah = await prisma.matakuliah.findUnique({
+            where: {
+                // Pastikan 'kodematakuliah' adalah field kunci di model Prisma Anda
+                kodeMatakuliah: kodematakuliah, 
+            },
+        });
+
+        // 3. Cek jika mata kuliah tidak ditemukan
+        if (!matakuliah) {
+            return res.status(404).json({
+                message: "Mata kuliah tidak ditemukan",
+                data: null,
+            });
+        }
+
+        // 4. Kirim respons sukses
+        return res.status(200).json({
+            message: "Success",
+            data: matakuliah,
+        });
+        
+    } catch (error) {
+        // Penanganan error
+        return next(error);
+    }
+};
+
+const editMatakuliah = async (req, res, next) => {
+    try {
+        const { kodeMatakuliah, namaMatakuliah, sks } = req.body;
+        const updatedMatakuliah = await prisma.matakuliah.update({
+            where: {
+                kodeMatakuliah: kodeMatakuliah, 
+            },
+            data: {
+                namaMatakuliah: namaMatakuliah,
+                sks: sks,
+            },
+        });
+        return res.status(200).json({
+            message: "Matakuliah Berhasil Diedit",
+            data: updatedMatakuliah,
+        });
+    } catch (error) {
+        return next(error);
+    }};
 
 module.exports = {
     addMatakuliah,
@@ -657,5 +901,10 @@ module.exports = {
     mergeEncodings,
     downloadModel,
     deleteKelas,
-    editKelas
+    editKelas,
+    getKelasById,
+    createKelasAdmin,
+    editKelasAdmin,
+    editMatakuliah,
+    getMatakuliah,
 };
